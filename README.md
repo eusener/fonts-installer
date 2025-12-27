@@ -7,38 +7,38 @@
 
 Instalador interativo de fontes Microsoft e Developer para **Ubuntu/Debian** com interface TUI moderna.
 
-> **Nota:** Este programa foi desenvolvido exclusivamente para sistemas Ubuntu/Debian. Nao e compativel com outras distribuicoes Linux, macOS ou Windows.
+> **Nota:** Este programa foi desenvolvido exclusivamente para sistemas Ubuntu/Debian. Não é compatível com outras distribuições Linux, macOS ou Windows.
 
 ## Funcionalidades
 
 - Interface TUI interativa com [Textual](https://textual.textualize.io/)
-- Navegacao por abas (ClearType, Dev Fonts, Core Fonts)
-- Selecao multipla com checkboxes
+- Navegação por abas (ClearType, Dev Fonts, Core Fonts)
+- Seleção múltipla com checkboxes
 - Barra de progresso em tempo real
-- Download automatico do GitHub (fontes dev)
-- Extracao automatica de arquivos .exe/.cab/.zip
-- Atualizacao automatica do cache de fontes
-- Deteccao e instalacao automatica de dependencias do sistema
+- Download automático do GitHub (fontes dev)
+- Extração automática de arquivos .exe/.cab/.zip
+- Atualização automática do cache de fontes
+- Detecção e instalação automática de dependências do sistema
 
-## Instalacao
+## Instalação
 
 ### Requisitos do Sistema
 
-- **Sistema Operacional:** Ubuntu ou Debian (obrigatorio)
+- **Sistema Operacional:** Ubuntu ou Debian (obrigatório)
 - **Python:** 3.11 ou superior
-- **Dependencias do sistema:** `cabextract`, `fontconfig`
+- **Dependências do sistema:** `cabextract`, `fontconfig`
 
-O programa detecta automaticamente dependencias faltantes e oferece instalacao automatica:
+O programa detecta automaticamente dependências faltantes e oferece instalação automática:
 
 ```
 $ uv run font-installer
 Font Installer para Ubuntu
 ----------------------------------------
-Dependencias faltando: cabextract, fontconfig
+Dependências faltando: cabextract, fontconfig
 Deseja instalar automaticamente? [S/n] s
 
-Instalando dependencias...
-Dependencias instaladas: cabextract, fontconfig
+Instalando dependências...
+Dependências instaladas: cabextract, fontconfig
 ```
 
 Ou instale manualmente:
@@ -50,7 +50,7 @@ sudo apt update && sudo apt install cabextract fontconfig
 ### Instalar o Font Installer
 
 ```bash
-# Clonar o repositorio
+# Clonar o repositório
 git clone https://github.com/seu-usuario/font-installer.git
 cd font-installer
 
@@ -90,7 +90,7 @@ uv run font-installer
 # Instalar fontes ClearType diretamente (sem TUI)
 uv run font-installer --cli
 
-# Instalar dependencias do sistema (cabextract, fontconfig)
+# Instalar dependências do sistema (cabextract, fontconfig)
 uv run font-installer --install-deps
 
 # Listar fontes instaladas
@@ -102,43 +102,43 @@ uv run font-installer --help
 
 ### Atalhos de Teclado
 
-| Tecla | Acao |
+| Tecla | Ação |
 |:-----:|------|
 | `Tab` | Navegar entre elementos |
 | `Space` | Marcar/desmarcar checkbox |
 | `a` | Selecionar todas as fontes |
-| `c` | Limpar selecao |
-| `i` | Iniciar instalacao |
+| `c` | Limpar seleção |
+| `i` | Iniciar instalação |
 | `q` | Sair |
 
-## Fontes Disponiveis
+## Fontes Disponíveis
 
 ### Microsoft ClearType (~26 arquivos)
 
-Fontes incluidas no PowerPoint Viewer, baixadas automaticamente.
+Fontes incluídas no PowerPoint Viewer, baixadas automaticamente.
 
-| Fonte | Tipo | Descricao |
+| Fonte | Tipo | Descrição |
 |-------|:----:|-----------|
-| **Calibri** | Sans-serif | Padrao do Microsoft Office |
+| **Calibri** | Sans-serif | Padrão do Microsoft Office |
 | **Cambria** | Serif | Elegante para documentos |
-| **Consolas** | Monospace | Ideal para programacao |
-| **Constantia** | Serif | Classica e refinada |
-| **Corbel** | Sans-serif | Humanista e legivel |
+| **Consolas** | Monospace | Ideal para programação |
+| **Constantia** | Serif | Clássica e refinada |
+| **Corbel** | Sans-serif | Humanista e legível |
 | **Candara** | Sans-serif | Suave e moderna |
 
 ### Fontes para Desenvolvimento
 
 Baixadas diretamente das releases do GitHub.
 
-| Fonte | Repositorio | Descricao |
+| Fonte | Repositório | Descrição |
 |-------|-------------|-----------|
 | **Cascadia Code** | microsoft/cascadia-code | Fonte oficial do Windows Terminal |
 | **JetBrains Mono** | JetBrains/JetBrainsMono | Otimizada para IDEs |
 | **Fira Code** | tonsky/FiraCode | Monospace com ligaduras |
-| **Hack** | source-foundry/Hack | Limpa e legivel |
+| **Hack** | source-foundry/Hack | Limpa e legível |
 | **Source Code Pro** | adobe-fonts/source-code-pro | Fonte Adobe |
-| **Victor Mono** | rubjo/victor-mono | Italico cursivo elegante |
-| **Inconsolata** | googlefonts/Inconsolata | Classica do Google Fonts |
+| **Victor Mono** | rubjo/victor-mono | Itálico cursivo elegante |
+| **Inconsolata** | googlefonts/Inconsolata | Clássica do Google Fonts |
 
 ### Microsoft Core Fonts
 
@@ -155,37 +155,37 @@ font-installer/
 │   ├── __main__.py          # Entry point: python -m font_installer
 │   ├── cli.py               # Interface de linha de comando
 │   │
-│   ├── config/              # Configuracoes
+│   ├── config/              # Configurações
 │   │   ├── settings.py      # Constantes, paths, URLs
-│   │   └── fonts.py         # Catalogo de fontes (dataclasses)
+│   │   └── fonts.py         # Catálogo de fontes (dataclasses)
 │   │
-│   ├── core/                # Logica de negocio
-│   │   ├── exceptions.py    # Excecoes customizadas
+│   ├── core/                # Lógica de negócio
+│   │   ├── exceptions.py    # Exceções customizadas
 │   │   ├── downloader.py    # Download com callback de progresso
-│   │   ├── extractor.py     # Extracao de cab/zip
+│   │   ├── extractor.py     # Extração de cab/zip
 │   │   └── installer.py     # Orquestrador principal
 │   │
 │   ├── ui/                  # Interface TUI
-│   │   ├── app.py           # Aplicacao Textual
+│   │   ├── app.py           # Aplicação Textual
 │   │   ├── styles.py        # CSS/Estilos
 │   │   ├── widgets/         # Widgets customizados
 │   │   └── screens/         # Telas adicionais
 │   │
-│   └── utils/               # Utilitarios
-│       └── system.py        # Verificacoes do sistema
+│   └── utils/               # Utilitários
+│       └── system.py        # Verificações do sistema
 │
 ├── tests/                   # Testes automatizados
 │   ├── conftest.py          # Fixtures pytest
-│   ├── test_installer.py    # Testes unitarios
+│   ├── test_installer.py    # Testes unitários
 │   └── test_integration_flow.py  # Fluxo principal com rede/apt
 │
-├── pyproject.toml           # Configuracao do projeto
+├── pyproject.toml           # Configuração do projeto
 └── README.md
 ```
 
-## Diretorios de Instalacao
+## Diretórios de Instalação
 
-| Categoria | Diretorio |
+| Categoria | Diretório |
 |-----------|-----------|
 | Microsoft ClearType | `~/.local/share/fonts/microsoft/` |
 | Developer Fonts | `~/.local/share/fonts/dev/` |
@@ -202,13 +202,13 @@ uv sync
 # Executar testes
 uv run pytest tests/ -v
 
-# Executar testes de integracao (usa rede e apt)
+# Executar testes de integração (usa rede e apt)
 RUN_INTEGRATION=1 uv run pytest -m integration -v
 
 # Incluir teste de Core Fonts (requer sudo sem senha e pode solicitar EULA)
 RUN_INTEGRATION=1 RUN_CORE_FONTS=1 uv run pytest -m integration -v
 
-> Os testes de integracao exigem Linux com `apt`, acesso a rede e `sudo` sem senha (`sudo -n`).
+> Os testes de integração exigem Linux com `apt`, acesso à rede e `sudo` sem senha (`sudo -n`).
 
 # Executar com cobertura
 uv run pytest tests/ --cov=font_installer
@@ -223,22 +223,22 @@ uv run ruff format src/
 
 ## FAQ
 
-### Funciona em outras distribuicoes Linux?
+### Funciona em outras distribuições Linux?
 
-Nao. Este programa foi desenvolvido especificamente para **Ubuntu/Debian** e depende do gerenciador de pacotes `apt`. Para outras distribuicoes, seria necessario adaptar a instalacao de dependencias.
+Não. Este programa foi desenvolvido especificamente para **Ubuntu/Debian** e depende do gerenciador de pacotes `apt`. Para outras distribuições, seria necessário adaptar a instalação de dependências.
 
 ### Onde fica a fonte Segoe UI?
 
-A fonte Segoe UI e propriedade da Microsoft e nao esta disponivel para download publico.
+A fonte Segoe UI é propriedade da Microsoft e não está disponível para download público.
 
 **Alternativas:**
 - **Selawik** (clone open-source): `sudo apt install fonts-selawik`
 - **Open Sans** (visual similar)
-- Copiar de uma instalacao Windows licenciada: `C:\Windows\Fonts\segoeui*.ttf`
+- Copiar de uma instalação Windows licenciada: `C:\Windows\Fonts\segoeui*.ttf`
 
-### As fontes nao aparecem nos aplicativos
+### As fontes não aparecem nos aplicativos
 
-Apos a instalacao, reinicie os aplicativos ou execute:
+Após a instalação, reinicie os aplicativos ou execute:
 
 ```bash
 fc-cache -fv ~/.local/share/fonts/
@@ -246,7 +246,7 @@ fc-cache -fv ~/.local/share/fonts/
 
 ### Erro "cabextract not found"
 
-Instale a dependencia:
+Instale a dependência:
 
 ```bash
 sudo apt install cabextract
@@ -260,10 +260,10 @@ sudo apt install cabextract
 - [pytest](https://pytest.org/) - Framework de testes
 - [Ruff](https://github.com/astral-sh/ruff) - Linter/Formatter
 
-## Licenca
+## Licença
 
-Este projeto esta licenciado sob a [MIT License](LICENSE).
+Este projeto está licenciado sob a [MIT License](LICENSE).
 
 ---
 
-**Nota:** As fontes instaladas por este software sao propriedade de seus respectivos donos. Este instalador apenas automatiza o processo de download e instalacao de fontes disponibilizadas publicamente.
+**Nota:** As fontes instaladas por este software são propriedade de seus respectivos donos. Este instalador apenas automatiza o processo de download e instalação de fontes disponibilizadas publicamente.
