@@ -1,6 +1,6 @@
 """Application settings and configuration."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar
 
@@ -13,6 +13,7 @@ class Settings:
     FONTS_BASE_DIR: ClassVar[Path] = Path.home() / ".local" / "share" / "fonts"
     MICROSOFT_FONTS_DIR: ClassVar[Path] = FONTS_BASE_DIR / "microsoft"
     DEV_FONTS_DIR: ClassVar[Path] = FONTS_BASE_DIR / "dev"
+    CORE_FONTS_DIR: ClassVar[Path] = FONTS_BASE_DIR / "microsoft-core"
 
     # URLs
     POWERPOINT_VIEWER_URL: ClassVar[str] = (
@@ -40,3 +41,4 @@ class Settings:
         """Create font directories if they don't exist."""
         cls.MICROSOFT_FONTS_DIR.mkdir(parents=True, exist_ok=True)
         cls.DEV_FONTS_DIR.mkdir(parents=True, exist_ok=True)
+        cls.CORE_FONTS_DIR.mkdir(parents=True, exist_ok=True)

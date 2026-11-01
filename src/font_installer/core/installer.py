@@ -1,17 +1,25 @@
 """Main font installation orchestrator."""
 
+import os
 import shutil
+import signal
 import subprocess
 import tempfile
 from dataclasses import dataclass
+from importlib.resources import files
 from pathlib import Path
-from typing import Callable
 
-from ..config.fonts import DEV_FONTS, FontInfo
+from ..config.fonts import DEV_FONTS
 from ..config.settings import Settings
-from .downloader import Downloader, DownloadProgress, ProgressCallback
-from .exceptions import DependencyError, InstallationError
+from .downloader import Downloader, DownloadProgress, ProgressCallback, emit_progress
+from .exceptions import (
+    DependencyError,
+    DownloadError,
+    ExtractionError,
+    InstallationError,
+)
 from .extractor import FontExtractor
+from .packages import PackageManagerError, detect_package_manager
 
 
 @dataclass
@@ -22,6 +30,7 @@ class InstallResult:
     font_name: str
     files_installed: int
     message: str
+    files_expected: int | None = None
 
 
 class FontInstaller:
@@ -37,10 +46,10 @@ class FontInstaller:
         self._downloader = Downloader(progress_callback)
         self._extractor = FontExtractor()
 
-    def _report(self, name: str, percent: int, status: str) -> None:
-        """Report progress."""
-        if self._callback:
-            self._callback(DownloadProgress(name=name, percent=percent, status=status))
+    def _report(self, name: str, phase: str, event: str, status: str) -> None:
+        emit_progress(
+            self._callback, DownloadProgress(name, 0, status, phase=phase, event=event)
+        )
 
     @staticmethod
     def check_dependencies() -> tuple[bool, list[str]]:
@@ -50,17 +59,21 @@ class FontInstaller:
         Returns:
             Tuple of (all_present, missing_tools)
         """
-        missing = [
-            tool for tool in Settings.REQUIRED_TOOLS if shutil.which(tool) is None
-        ]
+        tools = list(Settings.REQUIRED_TOOLS)
+        try:
+            if detect_package_manager().name == "dnf":
+                tools.extend(("bash", "rpm2cpio", "cpio", "curl"))
+        except PackageManagerError:
+            pass
+        missing = [tool for tool in tools if shutil.which(tool) is None]
         return len(missing) == 0, missing
 
     @staticmethod
     def install_dependencies() -> tuple[bool, str]:
         """
-        Install required system dependencies via apt.
+        Install required system dependencies using the native package manager.
 
-        Requires sudo privileges.
+        Requires root or sudo privileges.
 
         Returns:
             Tuple of (success, message)
@@ -69,39 +82,30 @@ class FontInstaller:
         if ok:
             return True, "Todas as dependencias ja estao instaladas"
 
-        # Map tool names to apt package names
-        apt_packages = {
+        package_names = {
             "cabextract": "cabextract",
             "fc-cache": "fontconfig",
+            "rpm2cpio": "rpm",
         }
-
-        packages_to_install = [apt_packages.get(tool, tool) for tool in missing]
+        packages_to_install = list(
+            dict.fromkeys(package_names.get(tool, tool) for tool in missing)
+        )
+        try:
+            manager = detect_package_manager()
+        except PackageManagerError as error:
+            return False, str(error)
 
         try:
-            # Update apt cache
-            subprocess.run(
-                ["sudo", "apt", "update"],
-                check=True,
-                capture_output=True,
-            )
-
-            # Install packages
-            subprocess.run(
-                ["sudo", "apt", "install", "-y"] + packages_to_install,
-                check=True,
-            )
-
-            # Verify installation
+            manager.install(packages_to_install)
             ok, still_missing = FontInstaller.check_dependencies()
             if ok:
-                return True, f"Dependencias instaladas: {', '.join(packages_to_install)}"
-            else:
-                return False, f"Falha ao instalar: {', '.join(still_missing)}"
-
-        except subprocess.CalledProcessError as e:
-            return False, f"Erro ao executar apt: {e}"
-        except FileNotFoundError:
-            return False, "Comando apt nao encontrado. Este programa requer Ubuntu/Debian."
+                return (
+                    True,
+                    f"Dependencias instaladas: {', '.join(packages_to_install)}",
+                )
+            return False, f"Falha ao instalar: {', '.join(still_missing)}"
+        except (PackageManagerError, subprocess.SubprocessError, OSError) as error:
+            return False, f"Erro ao executar {manager.name}: {error}"
 
     @staticmethod
     def ensure_dependencies() -> None:
@@ -135,164 +139,204 @@ class FontInstaller:
 
         return installed
 
-    def install_cleartype_fonts(self) -> InstallResult:
-        """
-        Install Microsoft ClearType fonts from PowerPoint Viewer.
-
-        Returns:
-            InstallResult with installation status
-        """
-        self._report("ClearType", 0, "Iniciando instalacao...")
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmppath = Path(tmpdir)
-            ppviewer = tmppath / "PowerPointViewer.exe"
-
-            try:
-                # Download PowerPoint Viewer
-                self._downloader.download_file(
-                    Settings.POWERPOINT_VIEWER_URL, ppviewer, "ClearType"
+    def _install_archive(
+        self,
+        name: str,
+        target: Path,
+        *,
+        url: str | None = None,
+        repo: str | None = None,
+        pattern: str = "",
+    ) -> InstallResult:
+        phase = "lookup"
+        installed = 0
+        expected = None
+        try:
+            if repo:
+                self._report(name, phase, "started", "Buscando release")
+                url = self._downloader.get_github_release_url(repo, pattern)
+                self._report(name, phase, "completed", "Consulta concluída")
+            if not url:
+                return InstallResult(
+                    False, name, 0, "Release sem arquivo ZIP compatível"
                 )
-
-                # Extract fonts
-                self._report("ClearType", 100, "Extraindo fontes...")
-                fonts = self._extractor.extract_from_cab(
-                    ppviewer, tmppath / "extracted"
+            with tempfile.TemporaryDirectory() as tmpdir:
+                work = Path(tmpdir)
+                archive = work / ("archive.exe" if repo is None else "archive.zip")
+                phase = "download"
+                self._downloader.download_file(url, archive, name)
+                phase = "extract"
+                self._report(name, phase, "started", "Extraindo fontes")
+                extract = (
+                    self._extractor.extract_from_cab
+                    if repo is None
+                    else self._extractor.extract_from_zip
                 )
-
+                fonts = extract(archive, work / "extracted")
+                self._report(name, phase, "completed", "Extração concluída")
+                expected = len(fonts)
                 if not fonts:
-                    return InstallResult(
-                        success=False,
-                        font_name="ClearType",
-                        files_installed=0,
-                        message="Nenhuma fonte encontrada no arquivo",
-                    )
-
-                # Install fonts
-                self._report("ClearType", 100, "Instalando fontes...")
-                installed = self._install_fonts_to_dir(
-                    fonts, Settings.MICROSOFT_FONTS_DIR
+                    return InstallResult(False, name, 0, "Nenhuma fonte encontrada", 0)
+                phase = "copy"
+                self._report(name, phase, "started", "Copiando fontes")
+                installed = self._install_fonts_to_dir(fonts, target)
+                complete = installed == expected
+                message = f"{installed}/{expected} arquivos copiados"
+                self._report(
+                    name, phase, "completed" if complete else "failed", message
                 )
+            return InstallResult(complete, name, installed, message, expected)
+        except (
+            DownloadError,
+            ExtractionError,
+            InstallationError,
+            OSError,
+            shutil.Error,
+            subprocess.SubprocessError,
+        ) as error:
+            self._report(name, phase, "failed", str(error))
+            return InstallResult(False, name, installed, str(error), expected)
 
-                self._report("ClearType", 100, f"{installed} fontes instaladas!")
-                return InstallResult(
-                    success=True,
-                    font_name="ClearType",
-                    files_installed=installed,
-                    message=f"{installed} fontes instaladas com sucesso",
-                )
-
-            except Exception as e:
-                return InstallResult(
-                    success=False,
-                    font_name="ClearType",
-                    files_installed=0,
-                    message=str(e),
-                )
-
-    def install_dev_font(self, font_key: str) -> InstallResult:
-        """
-        Install a developer font from GitHub.
-
-        Args:
-            font_key: Key from DEV_FONTS dictionary
-
-        Returns:
-            InstallResult with installation status
-        """
-        if font_key not in DEV_FONTS:
-            return InstallResult(
-                success=False,
-                font_name=font_key,
-                files_installed=0,
-                message=f"Fonte desconhecida: {font_key}",
-            )
-
-        font_info = DEV_FONTS[font_key]
-        font_name = font_info.name
-
-        self._report(font_name, 0, "Buscando release...")
-
-        # Get download URL from GitHub
-        url = self._downloader.get_github_release_url(
-            font_info.repo, font_info.asset_pattern
+    def install_cleartype_fonts(self) -> InstallResult:
+        return self._install_archive(
+            "ClearType",
+            Settings.MICROSOFT_FONTS_DIR,
+            url=Settings.POWERPOINT_VIEWER_URL,
         )
 
-        if not url:
-            return InstallResult(
-                success=False,
-                font_name=font_name,
-                files_installed=0,
-                message="Release nao encontrada no GitHub",
-            )
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmppath = Path(tmpdir)
-            zip_path = tmppath / f"{font_key}.zip"
-
-            try:
-                # Download
-                self._downloader.download_file(url, zip_path, font_name)
-
-                # Extract
-                self._report(font_name, 100, "Extraindo fontes...")
-                fonts = self._extractor.extract_from_zip(zip_path, tmppath / font_key)
-
-                if not fonts:
-                    return InstallResult(
-                        success=False,
-                        font_name=font_name,
-                        files_installed=0,
-                        message="Nenhuma fonte encontrada no arquivo",
-                    )
-
-                # Install
-                self._report(font_name, 100, "Instalando fontes...")
-                installed = self._install_fonts_to_dir(fonts, Settings.DEV_FONTS_DIR)
-
-                self._report(font_name, 100, f"{installed} arquivos instalados!")
-                return InstallResult(
-                    success=True,
-                    font_name=font_name,
-                    files_installed=installed,
-                    message=f"{installed} arquivos instalados com sucesso",
-                )
-
-            except Exception as e:
-                return InstallResult(
-                    success=False,
-                    font_name=font_name,
-                    files_installed=0,
-                    message=str(e),
-                )
+    def install_dev_font(self, font_key: str) -> InstallResult:
+        if font_key not in DEV_FONTS:
+            return InstallResult(False, font_key, 0, f"Fonte desconhecida: {font_key}")
+        info = DEV_FONTS[font_key]
+        return self._install_archive(
+            info.name,
+            Settings.DEV_FONTS_DIR,
+            repo=info.repo,
+            pattern=info.asset_pattern or "",
+        )
 
     @staticmethod
-    def install_core_fonts() -> InstallResult:
+    def install_core_fonts(
+        progress_callback: ProgressCallback | None = None,
+    ) -> InstallResult:
         """
-        Install Microsoft Core Fonts via apt.
+        Install via apt on Debian or the bundled script/RPM on Fedora.
 
-        Requires sudo privileges.
+        Debian package installation requires root or sudo; Fedora writes user fonts.
 
         Returns:
             InstallResult with installation status
         """
         try:
-            subprocess.run(
-                ["sudo", "apt", "install", "-y", "ttf-mscorefonts-installer"],
-                check=True,
-            )
+            manager = detect_package_manager()
+            if manager.name == "dnf":
+                installer = FontInstaller(progress_callback)
+                return installer._install_core_fonts_script()
+            if manager.name != "apt":
+                raise PackageManagerError(
+                    "Instalação automática de Core Fonts disponível em "
+                    "Ubuntu/Debian e Fedora. ClearType e fontes Dev continuam disponíveis."
+                )
+            manager.install(["ttf-mscorefonts-installer"])
             return InstallResult(
                 success=True,
                 font_name="Core Fonts",
                 files_installed=1,
                 message="Core Fonts instaladas via apt",
             )
-        except subprocess.CalledProcessError as e:
+        except (PackageManagerError, subprocess.SubprocessError, OSError) as error:
             return InstallResult(
                 success=False,
                 font_name="Core Fonts",
                 files_installed=0,
-                message=f"Erro ao executar apt: {e}",
+                message=f"Falha ao instalar Core Fonts: {error}",
+            )
+
+    def _install_core_fonts_script(self) -> InstallResult:
+        """Run the bundled wrapper and RPM without installing a system package."""
+        resources = files("font_installer.utils")
+        count = 0
+        tail: list[str] = []
+        self._report(
+            "Core Fonts", "package", "started", "Iniciando msttcore.sh com RPM local"
+        )
+        try:
+            with tempfile.TemporaryDirectory(prefix="msttcore-bundle-") as tmpdir:
+                bundle = Path(tmpdir)
+                for name in (
+                    "msttcore.sh",
+                    "msttcore-fonts-installer-2.6-1.noarch.rpm",
+                ):
+                    (bundle / name).write_bytes(resources.joinpath(name).read_bytes())
+                with subprocess.Popen(
+                    ["bash", str(bundle / "msttcore.sh"), str(Settings.CORE_FONTS_DIR)],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                    bufsize=1,
+                    start_new_session=True,
+                ) as process:
+                    try:
+                        assert process.stdout is not None
+                        for raw in process.stdout:
+                            line = raw.strip()
+                            if line.startswith("FONT_INSTALLER_FILES_INSTALLED="):
+                                value = line.partition("=")[2]
+                                if value.isdigit():
+                                    count = int(value)
+                            elif line:
+                                tail.append(line[:2048])
+                                tail = tail[-8:]
+                                self._report(
+                                    "Core Fonts", "package", "progress", line[:2048]
+                                )
+                        code = process.wait()
+                    except BaseException:
+                        # Terminate only the process group created above, including download children.
+                        try:
+                            os.killpg(process.pid, signal.SIGTERM)
+                        except ProcessLookupError:
+                            pass
+                        raise
+            if code:
+                return InstallResult(
+                    False,
+                    "Core Fonts",
+                    count,
+                    f"msttcore.sh retornou {code}: " + " | ".join(tail),
+                    count,
+                )
+            missing = [
+                name
+                for name in ("arial.ttf", "calibri.ttf")
+                if not (Settings.CORE_FONTS_DIR / name).is_file()
+                or (Settings.CORE_FONTS_DIR / name).stat().st_size == 0
+            ]
+            if missing or count == 0:
+                return InstallResult(
+                    False,
+                    "Core Fonts",
+                    0,
+                    "msttcore.sh não confirmou fontes instaladas; ausentes: "
+                    + ", ".join(missing),
+                    0,
+                )
+            return InstallResult(
+                True,
+                "Core Fonts",
+                count,
+                f"msttcore.sh: {count} arquivos instalados em {Settings.CORE_FONTS_DIR}",
+                count,
+            )
+        except (OSError, subprocess.SubprocessError) as error:
+            return InstallResult(
+                False,
+                "Core Fonts",
+                count,
+                f"Falha ao executar msttcore.sh: {error}",
+                count,
             )
 
     @staticmethod

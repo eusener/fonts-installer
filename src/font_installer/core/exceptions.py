@@ -1,5 +1,7 @@
 """Custom exceptions for font installer."""
 
+from .packages import dependency_install_hint
+
 
 class FontInstallerError(Exception):
     """Base exception for font installer."""
@@ -20,7 +22,7 @@ class DownloadError(FontInstallerError):
 
     def __init__(self, url: str, reason: str):
         super().__init__(
-            message=f"Falha no download",
+            message="Falha no download",
             details=f"{url} - {reason}",
         )
         self.url = url
@@ -58,6 +60,10 @@ class DependencyError(FontInstallerError):
         tools_str = ", ".join(missing_tools)
         super().__init__(
             message="Dependencias faltando",
-            details=f"Instale: sudo apt install {tools_str}",
+            details=f"{tools_str}. {dependency_install_hint()}",
         )
         self.missing_tools = missing_tools
+
+
+class ProgressCallbackError(RuntimeError):
+    """A progress consumer failed; this is not an operational I/O failure."""

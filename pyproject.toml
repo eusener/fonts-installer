@@ -1,7 +1,7 @@
 [project]
 name = "font-installer"
 version = "1.0.0"
-description = "Instalador interativo de fontes Microsoft e Dev para Ubuntu/Linux"
+description = "Instalador interativo de fontes Microsoft e Dev para Linux"
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.11"
@@ -21,7 +21,7 @@ classifiers = [
     "Topic :: System :: Installation/Setup",
 ]
 dependencies = [
-    "textual>=0.40.0",
+    "textual>=8.2.8",
 ]
 
 [project.optional-dependencies]
@@ -80,3 +80,13 @@ markers = [
 dev = [
     "pytest>=9.0.2",
 ]
+
+[tool.hatch.build]
+artifacts = [
+    "src/font_installer/ui/assets/*.txt",
+    "src/font_installer/utils/msttcore.sh",
+    "src/font_installer/utils/msttcore-fonts-installer-2.6-1.noarch.rpm",
+]
+
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/tests", "/pyproject.toml", "/README.md", "/DESIGN.md"]

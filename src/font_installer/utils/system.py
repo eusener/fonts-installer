@@ -1,6 +1,6 @@
 """System utilities and checks."""
 
-import os
+import platform
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -27,7 +27,11 @@ class SystemChecker:
     def get_installed_fonts_count() -> int:
         """Count installed fonts in our directories."""
         count = 0
-        for directory in [Settings.MICROSOFT_FONTS_DIR, Settings.DEV_FONTS_DIR]:
+        for directory in [
+            Settings.MICROSOFT_FONTS_DIR,
+            Settings.DEV_FONTS_DIR,
+            Settings.CORE_FONTS_DIR,
+        ]:
             if directory.exists():
                 for ext in Settings.FONT_EXTENSIONS:
                     count += len(list(directory.glob(f"*{ext}")))
@@ -39,9 +43,9 @@ class SystemChecker:
         List all installed fonts by category.
 
         Returns:
-            Dictionary with 'microsoft' and 'dev' font lists
+            Dictionary with 'microsoft', 'dev' and user-local 'core' font lists
         """
-        result: dict[str, list[str]] = {"microsoft": [], "dev": []}
+        result: dict[str, list[str]] = {"microsoft": [], "dev": [], "core": []}
 
         if Settings.MICROSOFT_FONTS_DIR.exists():
             result["microsoft"] = sorted(
@@ -57,6 +61,13 @@ class SystemChecker:
                 if f.suffix.lower() in Settings.FONT_EXTENSIONS
             )
 
+        if Settings.CORE_FONTS_DIR.exists():
+            result["core"] = sorted(
+                f.name
+                for f in Settings.CORE_FONTS_DIR.iterdir()
+                if f.suffix.lower() in Settings.FONT_EXTENSIONS
+            )
+
         return result
 
     @staticmethod
@@ -67,7 +78,7 @@ class SystemChecker:
             fonts_count=SystemChecker.get_installed_fonts_count(),
             has_cabextract=shutil.which("cabextract") is not None,
             has_fc_cache=shutil.which("fc-cache") is not None,
-            is_linux=os.name == "posix",
+            is_linux=platform.system() == "Linux",
         )
 
     @staticmethod

@@ -3,6 +3,7 @@
 import sys
 
 from .core.installer import FontInstaller
+from .core.packages import dependency_install_hint
 from .ui.app import FontInstallerApp
 from .utils.system import SystemChecker
 
@@ -11,7 +12,7 @@ def print_help() -> None:
     """Print help message."""
     print(
         """
-Font Installer para Ubuntu
+Font Installer para Linux
 
 Uso: font-installer [comando]
 
@@ -28,12 +29,16 @@ Interface Interativa:
   Enter para ativar botoes
 
 Atalhos:
-  a - Selecionar todas as fontes
+  a - Selecionar ClearType e fontes Dev (Core e escolha individual)
   c - Limpar selecao
   i - Instalar selecionadas
-  q - Sair
+  l - Abrir/recolher logs
+  f - Seguir o final do log
+  ? - Ajuda
+  q - Sair (aguarda o lote ativo)
 
-Nota: Este programa foi desenvolvido para Ubuntu/Debian.
+Distribuicoes: Ubuntu/Debian, Fedora, Arch/Manjaro, openSUSE e Alpine.
+Core Fonts: Ubuntu/Debian via pacote; Fedora no diretório do usuário.
 """
     )
 
@@ -66,8 +71,7 @@ def check_and_install_deps() -> bool:
         print(message)
         return success
     else:
-        print("\nInstale manualmente com:")
-        print("  sudo apt update && sudo apt install cabextract fontconfig")
+        print("\n" + dependency_install_hint())
         return False
 
 
@@ -91,7 +95,7 @@ def install_deps_command() -> int:
 
 def run_cli_mode() -> int:
     """Run in CLI mode (non-interactive)."""
-    print("Font Installer para Ubuntu - Modo CLI")
+    print("Font Installer para Linux - Modo CLI")
     print("-" * 40)
 
     # Check and install dependencies
@@ -138,6 +142,10 @@ def list_fonts() -> int:
     else:
         print("  (nenhuma)")
 
+    print("\n[Core Fonts do usuário]")
+    for font in fonts.get("core", []):
+        print(f"  {font}")
+    print(f"  Total: {len(fonts.get('core', []))}")
     return 0
 
 
@@ -149,7 +157,7 @@ def main() -> int:
         # Check dependencies before running TUI
         ok, missing = FontInstaller.check_dependencies()
         if not ok:
-            print("Font Installer para Ubuntu")
+            print("Font Installer para Linux")
             print("-" * 40)
             if not check_and_install_deps():
                 return 1

@@ -95,3 +95,47 @@ class TestExceptions:
         assert "cabextract" in str(error)
         assert "fc-cache" in str(error)
         assert len(error.missing_tools) == 2
+
+
+def test_partial_copy_reports_actual_count(monkeypatch, tmp_path):
+    from font_installer.config.settings import Settings
+    from font_installer.core.installer import FontInstaller
+
+    files = [tmp_path / "a.ttf", tmp_path / "b.ttf"]
+    for f in files:
+        f.write_bytes(b"font")
+    installer = FontInstaller()
+    monkeypatch.setattr(Settings, "DEV_FONTS_DIR", tmp_path / "installed")
+    monkeypatch.setattr(
+        installer._downloader,
+        "get_github_release_url",
+        lambda *a: "https://example.test/f.zip",
+    )
+    monkeypatch.setattr(installer._downloader, "download_file", lambda *a: a[1])
+    monkeypatch.setattr(installer._extractor, "extract_from_zip", lambda *a: files)
+    monkeypatch.setattr(installer, "_install_fonts_to_dir", lambda *a: 1)
+    result = installer.install_dev_font("hack")
+    assert result.success is False
+    assert result.files_installed == 1 and result.files_expected == 2
+
+
+def test_unexpected_release_error_propagates(monkeypatch):
+    installer = FontInstaller()
+
+    def broken(*a):
+        raise TypeError("programming bug")
+
+    monkeypatch.setattr(installer._downloader, "get_github_release_url", broken)
+    with pytest.raises(TypeError):
+        installer.install_dev_font("hack")
+
+
+def test_operational_release_failure_becomes_result(monkeypatch):
+    installer = FontInstaller()
+
+    def broken(*a):
+        raise DownloadError("https://example.test", "offline")
+
+    monkeypatch.setattr(installer._downloader, "get_github_release_url", broken)
+    result = installer.install_dev_font("hack")
+    assert not result.success and "offline" in result.message

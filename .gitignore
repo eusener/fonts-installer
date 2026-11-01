@@ -25,8 +25,16 @@ wheels/
 venv/
 ENV/
 
+# Local environment configuration
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+
 # uv
 uv.lock
+.uv-cache/
 
 # IDE
 .idea/
@@ -37,7 +45,10 @@ uv.lock
 
 # Testing
 .coverage
+.coverage.*
+coverage.xml
 .pytest_cache/
+.hypothesis/
 htmlcov/
 .tox/
 .nox/
@@ -57,3 +68,10 @@ Thumbs.db
 # Local
 *.log
 *.tmp
+*.bak
+.cache/
+
+# Local agent workspaces
+/.superpowers/
+/.worktrees/
+/worktrees/
